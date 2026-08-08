@@ -1,0 +1,19 @@
+{
+  "id": "udelnaya",
+  "name": "Удельная",
+  "line_id": "line2",
+  "order": 4,
+  "status": "no_data",
+  "closed_type": false,
+  "notes": "Закрыта на ремонт. Описание входа/платформы/выхода пока не собрано.",
+  "entrance": {
+    "steps": []
+  },
+  "platform": {
+    "steps": [],
+    "directions": []
+  },
+  "exit": {
+    "steps": []
+  }
+}

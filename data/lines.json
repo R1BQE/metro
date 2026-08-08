@@ -1,0 +1,23 @@
+{
+  "lines": [
+    {
+      "id": "line1",
+      "name": "Линия 1 — красная",
+      "stations": []
+    },
+    {
+      "id": "line2",
+      "name": "Линия 2 — синяя",
+      "stations": [
+        "parnas",
+        "prospekt-prosveshcheniya",
+        "ozerki",
+        "udelnaya",
+        "pionerskaya",
+        "chyornaya-rechka",
+        "petrogradskaya",
+        "gorkovskaya"
+      ]
+    }
+  ]
+}
