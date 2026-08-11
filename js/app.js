@@ -10,12 +10,14 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
 
 (async function () {
   const fromInput = document.getElementById('station-from-input');
-  const fromResults = document.getElementById('station-from-results');
-  const fromResultStatus = document.getElementById('station-from-result-status');
+  const fromSelect = document.getElementById('station-from-select');
+  const fromEntranceRow = document.getElementById('station-from-entrance-row');
+  const fromEntranceSelect = document.getElementById('station-from-entrance-select');
 
   const toInput = document.getElementById('station-to-input');
-  const toResults = document.getElementById('station-to-results');
-  const toResultStatus = document.getElementById('station-to-result-status');
+  const toSelect = document.getElementById('station-to-select');
+  const toExitRow = document.getElementById('station-to-exit-row');
+  const toExitSelect = document.getElementById('station-to-exit-select');
 
   const swapButton = document.getElementById('swap-btn');
   const form = document.getElementById('route-form');
@@ -29,9 +31,9 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
 
   /**
    * Короткое сообщение о состоянии (загрузка, ошибка, короткое подтверждение).
-   * Это единственный элемент с aria-live на странице (не считая скрытых
-   * result-status у комбобоксов) — озвучивается NVDA целиком, поэтому здесь
-   * всегда должен быть только один короткий факт, а не весь маршрут.
+   * Это единственный элемент с aria-live на странице — озвучивается NVDA
+   * целиком, поэтому здесь всегда должен быть только один короткий факт,
+   * а не весь маршрут.
    *
    * Сначала текст очищается, и только потом (следующим тиком) ставится новый.
    * Это обязательно: если два раза подряд задать в aria-live-регионе один и тот же
@@ -47,12 +49,35 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
   }
 
   /**
-   * Строит список станций line2 для комбобоксов и создаёт оба комбобокса.
-   * Станции со status "no_data" остаются в списке (как раньше в select), но
-   * с пометкой "(данных пока нет)" — если пользователь всё же выберет такую
-   * станцию, buildRoute() сам вернёт понятную ошибку при построении маршрута.
+   * Показывает или скрывает поле выбора вестибюля (вход у станции отправления,
+   * выход у станции назначения) в зависимости от того, сколько вестибюлей у
+   * выбранной станции. Если он один — поле скрыто и не участвует в построении
+   * маршрута (resolveVestibule в route-builder.js сам возьмёт единственный
+   * вариант). Если несколько — поле показывается пустым, без выбора по
+   * умолчанию: какой физический вход/выход выбран, влияет на итоговый текст
+   * маршрута, поэтому выбор обязан быть явным действием пользователя.
    */
-  function initComboboxes() {
+  function syncVestibuleRow(stationId, row, select) {
+    const station = stationId ? stations[stationId] : null;
+    const vestibules = station ? station.vestibules : null;
+
+    if (!vestibules || vestibules.length <= 1) {
+      row.hidden = true;
+      select.innerHTML = '';
+      return;
+    }
+
+    row.hidden = false;
+    populateVestibuleSelect(select, vestibules);
+  }
+
+  /**
+   * Строит список станций line2 для комбобоксов и создаёт оба комбобокса.
+   * Станции со status "no_data" остаются в списке, но с пометкой "(данных
+   * пока нет)" — если пользователь всё же выберет такую станцию, buildRoute()
+   * сам вернёт понятную ошибку при построении маршрута.
+   */
+  function initPickers() {
     const line = lines['line2'];
     if (!line) {
       setStatus('В данных не найдена линия line2.');
@@ -67,20 +92,18 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
         label: station.status === 'no_data' ? `${station.name} (данных пока нет)` : station.name,
       }));
 
-    fromCombobox = createStationCombobox({
+    fromCombobox = createStationPicker({
       input: fromInput,
-      resultsContainer: fromResults,
-      resultStatus: fromResultStatus,
+      select: fromSelect,
       options,
-      emptyMessage: 'Станции не найдены',
+      onSelect: (id) => syncVestibuleRow(id, fromEntranceRow, fromEntranceSelect),
     });
 
-    toCombobox = createStationCombobox({
+    toCombobox = createStationPicker({
       input: toInput,
-      resultsContainer: toResults,
-      resultStatus: toResultStatus,
+      select: toSelect,
       options,
-      emptyMessage: 'Станции не найдены',
+      onSelect: (id) => syncVestibuleRow(id, toExitRow, toExitSelect),
     });
 
     // По умолчанию выбираем две разные станции, чтобы форма сразу была валидной.
@@ -187,8 +210,11 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
       return;
     }
 
+    const fromVestibuleId = fromEntranceRow.hidden ? undefined : fromEntranceSelect.value || undefined;
+    const toVestibuleId = toExitRow.hidden ? undefined : toExitSelect.value || undefined;
+
     try {
-      const route = buildRoute(fromId, toId, stations, lines);
+      const route = buildRoute(fromId, toId, fromVestibuleId, toVestibuleId, stations, lines);
       renderRoute(route);
     } catch (err) {
       if (err instanceof RouteBuildError) {
@@ -218,7 +244,7 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
     const data = await loadMetroData();
     stations = data.stations;
     lines = data.lines;
-    initComboboxes();
+    initPickers();
   } catch (err) {
     setStatus(
       'Не удалось загрузить данные станций. Если вы открыли index.html двойным щелчком — ' +

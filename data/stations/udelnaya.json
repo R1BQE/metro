@@ -6,14 +6,20 @@
   "status": "no_data",
   "closed_type": false,
   "notes": "Закрыта на ремонт. Описание входа/платформы/выхода пока не собрано.",
-  "entrance": {
-    "steps": []
-  },
+  "vestibules": [
+    {
+      "id": "main",
+      "name": "Единственный вход",
+      "entrance": {
+        "steps": []
+      },
+      "exit": {
+        "steps": []
+      }
+    }
+  ],
   "platform": {
     "steps": [],
     "directions": []
-  },
-  "exit": {
-    "steps": []
   }
 }

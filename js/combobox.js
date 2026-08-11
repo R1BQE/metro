@@ -1,53 +1,60 @@
 /**
  * combobox.js
- * Поле поиска станции по названию (или части названия) + список кнопок
- * с найденными вариантами под ним.
+ * Поле поиска станции (обычный текстовый input, работает только как фильтр)
+ * + обычный нативный <select> со списком станций, отфильтрованным по этому
+ * тексту (или полным списком, если поле пустое).
  *
- * Сознательно НЕ используется ARIA-паттерн combobox/listbox (изначальная
- * версия): на практике проверено, что он плохо и непредсказуемо работает
- * с сенсорными читалками (VoiceOver, TalkBack) — жесты вокруг поля ввода
- * могли "схлопнуть" его и скрыть список вариантов. Версия на обычных
- * кнопках работает одинаково надёжно и с клавиатуры (NVDA), и жестами на
- * телефоне, потому что кнопка — самый базовый и однозначно поддерживаемый
- * элемент, без специальных ARIA-паттернов.
- *
- * Список результатов НЕ закрывается по потере фокуса полем ввода — это
- * специально: пользователь на сенсорном экране должен иметь возможность
- * спокойно touch-исследовать список пальцем, не боясь, что он "пропадёт",
- * стоит убрать палец с текстового поля.
+ * Почему так, а не кастомный ARIA combobox/listbox (использовался раньше) и
+ * не список кнопок (использовался после него): у нативного <select> открытие/
+ * закрытие списка, позиционирование, объявление количества и текущей позиции
+ * варианта — всё это реализовано самим браузером и ОС, а не нашим JS. Кнопки
+ * были надёжны, но при большом числе станций растягивали страницу и раздували
+ * последовательность табуляции/свайпов. Комбобокс по ARIA-паттерну оказался
+ * ненадёжен на сенсорных читалках (VoiceOver/TalkBack) — с этим уже
+ * сталкивались на реальных устройствах. Пара «текстовое поле + select» не
+ * реализует руками ни одно из этих поведений — риск свести к минимуму.
  */
-function createStationCombobox({ input, resultsContainer, resultStatus, options, emptyMessage }) {
-  // Id выбранной станции. Есть значение только тогда, когда пользователь
-  // явно нажал на вариант (или он был установлен программно через
-  // setSelectedId) — набор текста в поле сам по себе выбором не считается.
+function createStationPicker({ input, select, options, onSelect }) {
+  // Id выбранной станции. Есть значение только тогда, когда в select реально
+  // выбран настоящий вариант (не служебный плейсхолдер) — либо пользователем,
+  // либо программно через setSelectedId.
   let selectedId;
 
-  function render(list) {
-    resultsContainer.innerHTML = '';
+  function findOption(id) {
+    return options.find((opt) => opt.id === id);
+  }
 
-    if (list.length === 0) {
-      const p = document.createElement('p');
-      p.className = 'station-results-empty';
-      p.textContent = emptyMessage;
-      resultsContainer.appendChild(p);
-      resultStatus.textContent = emptyMessage;
-      return;
+  /**
+   * Перестраивает список <option> внутри select под переданный список
+   * вариантов. Если id, который был выбран до этого, всё ещё есть в новом
+   * списке — оставляем его выбранным (native select сам покажет его текущим
+   * значением). Если его больше нет в списке (например, из-за фильтрации по
+   * тексту) — добавляем невидимый для реального выбора служебный плейсхолдер,
+   * чтобы select не выбрал произвольно первый попавшийся вариант молча, без
+   * явного действия пользователя.
+   */
+  function render(list) {
+    select.innerHTML = '';
+
+    const stillValid = selectedId != null && list.some((opt) => opt.id === selectedId);
+    if (!stillValid) {
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = list.length > 0 ? 'Выберите станцию из списка' : 'Станции не найдены';
+      placeholder.disabled = true;
+      placeholder.selected = true;
+      select.appendChild(placeholder);
     }
 
     list.forEach((opt) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'station-option';
-      btn.textContent = opt.label;
+      const optionEl = document.createElement('option');
+      optionEl.value = opt.id;
+      optionEl.textContent = opt.label;
       if (opt.id === selectedId) {
-        btn.setAttribute('aria-pressed', 'true');
-        btn.classList.add('is-selected');
+        optionEl.selected = true;
       }
-      btn.addEventListener('click', () => select(opt));
-      resultsContainer.appendChild(btn);
+      select.appendChild(optionEl);
     });
-
-    resultStatus.textContent = `Найдено станций: ${list.length}`;
   }
 
   function filter(query) {
@@ -58,23 +65,39 @@ function createStationCombobox({ input, resultsContainer, resultStatus, options,
     render(list);
   }
 
-  function select(opt) {
-    selectedId = opt.id;
-    input.value = opt.label;
-    // Перерисовываем список тем же (текущим) текстом поля, чтобы выбранный
-    // вариант получил визуальную/aria-pressed отметку "is-selected".
-    filter(input.value);
+  function confirmSelection(id) {
+    selectedId = id || undefined;
+    if (typeof onSelect === 'function') {
+      onSelect(selectedId);
+    }
   }
 
+  // Пользователь напечатал что-то в поле — пересобираем список select под
+  // новый текст. Если станция, выбранная ранее, всё ещё есть среди
+  // отфильтрованных вариантов — выбор сохраняется (это по-прежнему то же
+  // самое явное решение пользователя, просто список вокруг него сузился).
+  // Если пропала — select покажет плейсхолдер, выбора нет, пока не подтвердят заново.
   input.addEventListener('input', () => {
-    // Пока пользователь печатает, предыдущий выбор не действует — станция
-    // должна быть подтверждена заново явным нажатием на кнопку варианта.
-    selectedId = undefined;
     filter(input.value);
+    // filter()/render() уже решили, остался ли прошлый выбор среди отфильтрованных
+    // вариантов (тогда select.value — по-прежнему его id) или показан плейсхолдер
+    // (тогда select.value === ''). confirmSelection() просто фиксирует то, что видно в select.
+    confirmSelection(select.value || undefined);
   });
 
-  // Изначально показываем полный список станций (как и было в select) —
-  // это же используется, если пользователь стирает весь текст в поле.
+  // Пользователь выбрал вариант в select — это и есть момент подтверждения
+  // выбора. Дописываем полное название станции обратно в текстовое поле для
+  // наглядности (это не запускает повторную фильтрацию — событие 'input' не
+  // возникает при программной установке .value).
+  select.addEventListener('change', () => {
+    const opt = findOption(select.value);
+    if (opt) {
+      input.value = opt.label;
+    }
+    confirmSelection(select.value || undefined);
+  });
+
+  // Изначально — полный список станций, ничего не отфильтровано.
   filter('');
 
   return {
@@ -84,14 +107,45 @@ function createStationCombobox({ input, resultsContainer, resultStatus, options,
     },
     /**
      * Программно устанавливает станцию по id (используется кнопкой
-     * "Поменять местами" и начальным заполнением формы). Специально НЕ
-     * переводит фокус на input — иначе при первой загрузке страницы фокус
-     * неожиданно прыгал бы на последнее из двух программно выставленных
-     * полей.
+     * "Поменять местами" и начальным заполнением формы). Всегда пересобирает
+     * select на полном (нефильтрованном) списке станций — так после свапа
+     * пользователь снова видит весь список, а не сузившийся с прошлого раза.
+     * Специально не переводит фокус на input.
      */
     setSelectedId(id) {
-      const opt = options.find((o) => o.id === id);
-      if (opt) select(opt);
+      const opt = findOption(id);
+      if (!opt) return;
+      selectedId = id;
+      input.value = opt.label;
+      filter('');
+      confirmSelection(id);
     },
   };
+}
+
+/**
+ * Заполняет обычный select вариантами вестибюлей (вход или выход) без
+ * фильтрации по тексту — вестибюлей всегда мало (2-3), отдельное текстовое
+ * поле для поиска среди них не нужно. Всегда добавляет невыбранный
+ * плейсхолдер первым пунктом — станции с несколькими входами/выходами не
+ * должны получать вход "по умолчанию": какой физический вход выбран, влияет
+ * на итоговый текст маршрута, значит выбор обязан быть явным действием
+ * пользователя.
+ */
+function populateVestibuleSelect(select, vestibules) {
+  select.innerHTML = '';
+
+  const placeholder = document.createElement('option');
+  placeholder.value = '';
+  placeholder.textContent = 'Выберите вариант';
+  placeholder.disabled = true;
+  placeholder.selected = true;
+  select.appendChild(placeholder);
+
+  vestibules.forEach((vestibule) => {
+    const optionEl = document.createElement('option');
+    optionEl.value = vestibule.id;
+    optionEl.textContent = vestibule.name;
+    select.appendChild(optionEl);
+  });
 }

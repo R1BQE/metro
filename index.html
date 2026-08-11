@@ -26,11 +26,15 @@
           id="station-from-input"
           class="combobox-input"
           autocomplete="off"
-          placeholder="Начните вводить название станции"
-          required
+          placeholder="Начните вводить название станции, или сразу выберите её ниже из списка"
         />
-        <p id="station-from-result-status" class="visually-hidden" aria-live="polite"></p>
-        <div id="station-from-results" class="station-results"></div>
+        <label for="station-from-select" class="visually-hidden">Список станций отправления</label>
+        <select id="station-from-select" required></select>
+      </div>
+
+      <div class="form-row" id="station-from-entrance-row" hidden>
+        <label for="station-from-entrance-select">У станции несколько входов — выберите нужный</label>
+        <select id="station-from-entrance-select"></select>
       </div>
 
       <div class="form-row">
@@ -40,11 +44,15 @@
           id="station-to-input"
           class="combobox-input"
           autocomplete="off"
-          placeholder="Начните вводить название станции"
-          required
+          placeholder="Начните вводить название станции, или сразу выберите её ниже из списка"
         />
-        <p id="station-to-result-status" class="visually-hidden" aria-live="polite"></p>
-        <div id="station-to-results" class="station-results"></div>
+        <label for="station-to-select" class="visually-hidden">Список станций назначения</label>
+        <select id="station-to-select" required></select>
+      </div>
+
+      <div class="form-row" id="station-to-exit-row" hidden>
+        <label for="station-to-exit-select">У станции несколько выходов — выберите нужный</label>
+        <select id="station-to-exit-select"></select>
       </div>
 
       <div class="form-actions">

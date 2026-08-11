@@ -2,7 +2,14 @@
  * route-builder.js
  * Логика построения текстового маршрута между двумя станциями одной линии.
  *
- * Формат шага в данных станции (entrance.steps / platform.steps / exit.steps):
+ * У каждой станции вход и выход хранятся в station.vestibules — массиве вестибюлей
+ * ({ id, name, entrance: {steps}, exit: {steps} }). У большинства станций он состоит из
+ * одного элемента и выбирается автоматически; если вестибюлей несколько —
+ * конкретный id должен быть явно передан вызывающим кодом (никакой вестибюль не выбирается
+ * молча по умолчанию — какой физический вход/выход выбран, влияет на итоговый текст маршрута).
+ * platform остаётся общим для станции — он не зависит от того, через какой вестибюль вошли.
+ *
+ * Формат шага внутри вестибюля (entrance.steps / exit.steps) и в platform.steps:
  *   { "text": "..." }                                — безусловный шаг
  *   { "when": { "arrival_from": "Парнас" }, "text": "..." } — шаг только для этого условия
  *
@@ -49,6 +56,32 @@ function resolveSteps(steps, context) {
 }
 
 /**
+ * Находит нужный вестибюль станции. Если вестибюль один — он возвращается всегда,
+ * независимо от переданного vestibuleId (его можно вообще не указывать для таких станций).
+ * Если вестибюлей несколько, а vestibuleId не передан или не найден — это ошибка:
+ * выбор входа/выхода у таких станций должен быть явным действием пользователя.
+ *
+ * @param {Object} station
+ * @param {string|undefined} vestibuleId
+ * @returns {Object} вестибюль со структурой { id, name, entrance, exit }
+ * @throws {RouteBuildError}
+ */
+function resolveVestibule(station, vestibuleId) {
+  const vestibules = station.vestibules;
+  if (!vestibules || vestibules.length === 0) {
+    throw new RouteBuildError(`У станции «${station.name}» нет данных о входах/выходах.`);
+  }
+  if (vestibules.length === 1) {
+    return vestibules[0];
+  }
+  const found = vestibules.find((v) => v.id === vestibuleId);
+  if (!found) {
+    throw new RouteBuildError(`У станции «${station.name}» несколько входов/выходов — выберите нужный в соответствующем поле.`);
+  }
+  return found;
+}
+
+/**
  * Строит маршрут между двумя станциями в пределах одной линии.
  *
  * Логика направления:
@@ -65,6 +98,8 @@ function resolveSteps(steps, context) {
  *
  * @param {string} fromId - id станции отправления
  * @param {string} toId - id станции назначения
+ * @param {string|undefined} fromVestibuleId - id вестибюля для входа (нужен, только если у станции несколько вестибюлей)
+ * @param {string|undefined} toVestibuleId - id вестибюля для выхода (аналогично)
  * @param {Object} stations - словарь station_id -> станция (из loadMetroData)
  * @param {Object} lines - словарь line_id -> линия (из loadMetroData)
  * @returns {{
@@ -80,7 +115,7 @@ function resolveSteps(steps, context) {
  * }}
  * @throws {RouteBuildError} если маршрут построить нельзя
  */
-function buildRoute(fromId, toId, stations, lines) {
+function buildRoute(fromId, toId, fromVestibuleId, toVestibuleId, stations, lines) {
   if (fromId === toId) {
     throw new RouteBuildError('Станция отправления и станция назначения совпадают. Выберите другую станцию.');
   }
@@ -136,13 +171,16 @@ function buildRoute(fromId, toId, stations, lines) {
   const boardingEntry = (from.platform.directions || []).find((d) => d.destination === destinationLabel);
   const boardingSide = boardingEntry ? boardingEntry.side : null;
 
+  const fromVestibule = resolveVestibule(from, fromVestibuleId);
+  const toVestibule = resolveVestibule(to, toVestibuleId);
+
   return {
     fromName: from.name,
     toName: to.name,
-    entranceSteps: resolveSteps(from.entrance.steps, context),
+    entranceSteps: resolveSteps(fromVestibule.entrance.steps, context),
     fromPlatformSteps: resolveSteps(from.platform.steps, context),
     toPlatformSteps: resolveSteps(to.platform.steps, context),
-    exitSteps: resolveSteps(to.exit.steps, context),
+    exitSteps: resolveSteps(toVestibule.exit.steps, context),
     boardingSide,
     arrivalFrom,
     destinationLabel,
