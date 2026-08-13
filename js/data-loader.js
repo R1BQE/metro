@@ -12,11 +12,20 @@
 const DATA_PATH = 'data';
 
 /**
+ * Превращает id линии вида "line2" в номер папки "2".
+ * Станции лежат в data/<номер линии>/<station_id>.json — так удобнее
+ * ориентироваться в файлах проекта, чем в одной плоской папке на все линии.
+ */
+function lineFolder(lineId) {
+  return lineId.replace(/^line/, '');
+}
+
+/**
  * Загружает lines.json и все станции, упомянутые в нём.
  *
  * @returns {Promise<{lines: Object, stations: Object}>}
  *   lines — словарь line_id -> { id, name, stations: [id, id, ...] }
- *   stations — словарь station_id -> объект станции из data/stations/*.json
+ *   stations — словарь station_id -> объект станции из data/<номер линии>/*.json
  */
 async function loadMetroData() {
   const linesResponse = await fetch(`${DATA_PATH}/lines.json`);
@@ -26,12 +35,13 @@ async function loadMetroData() {
   const linesRaw = await linesResponse.json();
 
   const lines = {};
-  const stationIds = new Set();
+  // station_id -> line_id, чтобы знать, в какой папке искать файл станции
+  const stationLine = new Map();
 
   for (const line of linesRaw.lines) {
     lines[line.id] = line;
     for (const stationId of line.stations) {
-      stationIds.add(stationId);
+      stationLine.set(stationId, line.id);
     }
   }
 
@@ -39,9 +49,9 @@ async function loadMetroData() {
   const loadErrors = [];
 
   await Promise.all(
-    Array.from(stationIds).map(async (id) => {
+    Array.from(stationLine.entries()).map(async ([id, lineId]) => {
       try {
-        const response = await fetch(`${DATA_PATH}/stations/${id}.json`);
+        const response = await fetch(`${DATA_PATH}/${lineFolder(lineId)}/${id}.json`);
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }

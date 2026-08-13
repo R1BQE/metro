@@ -72,25 +72,38 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
   }
 
   /**
-   * Строит список станций line2 для комбобоксов и создаёт оба комбобокса.
-   * Станции со status "no_data" остаются в списке, но с пометкой "(данных
+   * Строит список станций для комбобоксов и создаёт оба комбобокса.
+   * Список включает станции ВСЕХ линий из lines.json (порядок в списке тот же,
+   * что и в самом lines.json: сначала все станции линии 1 по порядку, затем линии 2 и т.д.).
+   * Станции со статусом "no_data" остаются в списке, но с пометкой "(данных
    * пока нет)" — если пользователь всё же выберет такую станцию, buildRoute()
-   * сам вернёт понятную ошибку при построении маршрута.
+   * сам вернёт понятную ошибку при построении маршрута. А так как
+   * buildRoute() требует, чтобы станции отправления и назначения были на одной
+   * линии (маршруты без пересадок), в метку к каждому названию добавлен
+   * номер линии («— линия N»), чтобы станции с одинаковым или похожим
+   * названием на разных линиях было видно различить до выбора, а не только
+   * после ошибки при попытке построить маршрут.
    */
   function initPickers() {
-    const line = lines['line2'];
-    if (!line) {
-      setStatus('В данных не найдена линия line2.');
+    const allLines = Object.values(lines);
+    if (allLines.length === 0) {
+      setStatus('В данных не найдено ни одной линии.');
       return;
     }
 
-    const options = line.stations
-      .map((id) => stations[id])
-      .filter(Boolean)
-      .map((station) => ({
-        id: station.id,
-        label: station.status === 'no_data' ? `${station.name} (данных пока нет)` : station.name,
-      }));
+    const options = [];
+    for (const line of allLines) {
+      const lineNumber = line.id.replace(/^line/, '');
+      for (const stationId of line.stations) {
+        const station = stations[stationId];
+        if (!station) continue;
+        const suffix = station.status === 'no_data' ? ' (данных пока нет)' : '';
+        options.push({
+          id: station.id,
+          label: `${station.name} — линия ${lineNumber}${suffix}`,
+        });
+      }
+    }
 
     fromCombobox = createStationPicker({
       input: fromInput,
@@ -106,10 +119,14 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
       onSelect: (id) => syncVestibuleRow(id, toExitRow, toExitSelect),
     });
 
-    // По умолчанию выбираем две разные станции, чтобы форма сразу была валидной.
+    // По умолчанию выбираем две разные станции, чтобы select сразу содержал валидный
+    // выбор и форма была готова к отправке. Текстовые поля при этом нарочно
+    // остаются пустыми (updateInput: false) — пользователь должен либо сам начать
+    // печатать часть названия станции, либо явно выбрать вариант из списка сам —
+    // название станции, подставленное без явного действия, вводило бы в заблуждение.
     if (options.length > 1) {
-      fromCombobox.setSelectedId(options[0].id);
-      toCombobox.setSelectedId(options[1].id);
+      fromCombobox.setSelectedId(options[0].id, { updateInput: false });
+      toCombobox.setSelectedId(options[1].id, { updateInput: false });
     }
   }
 

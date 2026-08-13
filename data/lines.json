@@ -3,7 +3,27 @@
     {
       "id": "line1",
       "name": "Линия 1 — красная",
-      "stations": []
+      "stations": [
+        "devyatkino",
+        "grazhdanskiy-prospekt",
+        "akademicheskaya",
+        "politekhnicheskaya",
+        "ploshchad-muzhestva",
+        "lesnaya",
+        "vyborgskaya",
+        "ploshchad-lenina",
+        "chernyshevskaya",
+        "ploshchad-vosstaniya",
+        "vladimirskaya",
+        "pushkinskaya",
+        "tekhnologicheskiy-institut-1",
+        "baltiyskaya",
+        "narvskaya",
+        "kirovskiy-zavod",
+        "avtovo",
+        "leninskiy-prospekt",
+        "prospekt-veteranov"
+      ]
     },
     {
       "id": "line2",
@@ -16,7 +36,79 @@
         "pionerskaya",
         "chyornaya-rechka",
         "petrogradskaya",
-        "gorkovskaya"
+        "gorkovskaya",
+        "nevskiy-prospekt",
+        "sennaya-ploshchad",
+        "tekhnologicheskiy-institut-2",
+        "frunzenskaya",
+        "moskovskie-vorota",
+        "elektrosila",
+        "park-pobedy",
+        "moskovskaya",
+        "zvyozdnaya",
+        "kupchino"
+      ]
+    },
+    {
+      "id": "line3",
+      "name": "Линия 3 — зелёная",
+      "stations": [
+        "begovaya",
+        "zenit",
+        "primorskaya",
+        "vasileostrovskaya",
+        "gostiny-dvor",
+        "mayakovskaya",
+        "ploshchad-aleksandra-nevskogo-1",
+        "elizarovskaya",
+        "lomonosovskaya",
+        "proletarskaya",
+        "obukhovo",
+        "rybatskoe"
+      ]
+    },
+    {
+      "id": "line4",
+      "name": "Линия 4 — оранжевая",
+      "stations": [
+        "gorny-institut",
+        "spasskaya",
+        "dostoevskaya",
+        "ligovskiy-prospekt",
+        "ploshchad-aleksandra-nevskogo-2",
+        "novocherkasskaya",
+        "ladozhskaya",
+        "prospekt-bolshevikov",
+        "ulitsa-dybenko"
+      ]
+    },
+    {
+      "id": "line5",
+      "name": "Линия 5 — фиолетовая",
+      "stations": [
+        "komendantskiy-prospekt",
+        "staraya-derevnya",
+        "krestovskiy-ostrov",
+        "chkalovskaya",
+        "sportivnaya",
+        "admiralteyskaya",
+        "sadovaya",
+        "zvenigorodskaya",
+        "obvodny-kanal",
+        "volkovskaya",
+        "bukharestskaya",
+        "mezhdunarodnaya",
+        "prospekt-slavy",
+        "dunayskaya",
+        "shushary"
+      ]
+    },
+    {
+      "id": "line6",
+      "name": "Линия 6 — коричневая",
+      "stations": [
+        "putilovskaya",
+        "yugo-zapadnaya"
       ]
     }
   ]
