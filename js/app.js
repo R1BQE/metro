@@ -80,9 +80,11 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
    * сам вернёт понятную ошибку при построении маршрута. А так как
    * buildRoute() требует, чтобы станции отправления и назначения были на одной
    * линии (маршруты без пересадок), в метку к каждому названию добавлен
-   * номер линии («— линия N»), чтобы станции с одинаковым или похожим
-   * названием на разных линиях было видно различить до выбора, а не только
-   * после ошибки при попытке построить маршрут.
+   * номер линии и её цвет («— линия N. (Цвет)»), чтобы станции с одинаковым
+   * или похожим названием на разных линиях было видно различить до выбора,
+   * а не только после ошибки при попытке построить маршрут. Цвет берётся из
+   * line.name в lines.json (формат «Линия N — цвет»), а не хранится отдельно,
+   * чтобы не было двух источников истины.
    */
   function initPickers() {
     const allLines = Object.values(lines);
@@ -94,13 +96,18 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
     const options = [];
     for (const line of allLines) {
       const lineNumber = line.id.replace(/^line/, '');
+      const colorMatch = line.name.match(/—\s*(.+)$/);
+      const colorLabel = colorMatch
+        ? colorMatch[1].trim().replace(/^./, (c) => c.toUpperCase())
+        : '';
       for (const stationId of line.stations) {
         const station = stations[stationId];
         if (!station) continue;
         const suffix = station.status === 'no_data' ? ' (данных пока нет)' : '';
+        const colorSuffix = colorLabel ? ` (${colorLabel})` : '';
         options.push({
           id: station.id,
-          label: `${station.name} — линия ${lineNumber}${suffix}`,
+          label: `${station.name} — линия ${lineNumber}.${colorSuffix}${suffix}`,
         });
       }
     }
