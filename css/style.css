@@ -193,13 +193,12 @@ button:hover {
   padding: 1rem;
 }
 
-.device-panel ol {
-  padding-left: 1.25rem;
-  margin-top: 0;
+.device-panel p {
+  margin: 0 0 0.5rem;
 }
 
-.device-panel li {
-  margin-bottom: 0.5rem;
+.device-panel p:last-child {
+  margin-bottom: 0;
 }
 
 /* Текстовое поле-фильтр над списком станций (см. .form-row select ниже для самого select) */
