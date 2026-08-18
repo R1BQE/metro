@@ -11,7 +11,7 @@
 (function () {
   var pages = [
     { href: 'index.html', label: 'Главная' },
-    { href: 'instructions.html', label: 'Инструкция' },
+    { href: 'instructions.html', label: 'Инструкции' },
     { href: 'about.html', label: 'О нас' },
   ];
 
