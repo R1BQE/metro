@@ -21,5 +21,11 @@
   "platform": {
     "steps": [],
     "directions": []
-  }
+  },
+  "transfers": [
+    {
+      "to": "pushkinskaya",
+      "steps": []
+    }
+  ]
 }

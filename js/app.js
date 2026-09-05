@@ -76,15 +76,14 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
    * Список включает станции ВСЕХ линий из lines.json (порядок в списке тот же,
    * что и в самом lines.json: сначала все станции линии 1 по порядку, затем линии 2 и т.д.).
    * Станции со статусом "no_data" остаются в списке, но с пометкой "(данных
-   * пока нет)" — если пользователь всё же выберет такую станцию, buildRoute()
-   * сам вернёт понятную ошибку при построении маршрута. А так как
-   * buildRoute() требует, чтобы станции отправления и назначения были на одной
-   * линии (маршруты без пересадок), в метку к каждому названию добавлен
-   * номер линии и её цвет («— линия N. (Цвет)»), чтобы станции с одинаковым
-   * или похожим названием на разных линиях было видно различить до выбора,
-   * а не только после ошибки при попытке построить маршрут. Цвет берётся из
-   * line.name в lines.json (формат «Линия N — цвет»), а не хранится отдельно,
-   * чтобы не было двух источников истины.
+   * пока нет)" — маршрут через такую станцию всё равно строится (route-builder.js
+   * показывает полный скелет маршрута даже без текста шагов), пометка лишь
+   * заранее предупреждает, что текста по этой станции пока не будет. buildRoute()
+   * умеет строить маршруты и с пересадками между линиями, но в метку к каждому
+   * названию всё равно добавлен номер линии и её цвет («— линия N. (Цвет)») —
+   * чтобы станции с одинаковым или похожим названием на разных линиях было видно
+   * различить до выбора. Цвет берётся из line.name в lines.json (формат
+   * «Линия N — цвет»), а не хранится отдельно, чтобы не было двух источников истины.
    */
   function initPickers() {
     const allLines = Object.values(lines);
@@ -170,20 +169,53 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
   }
 
   /**
+   * Добавляет в контейнер шаги раздела (route-builder.js resolveSteps), а если у раздела
+   * вообще нет текста (данные ещё не собраны) — короткую пометку вместо пустоты. Заголовок
+   * раздела при этом показывается всегда, независимо от наличия текста, — это и есть
+   * «полный скелет маршрута», который нужен, даже если по части станций данных пока нет.
+   */
+  function appendStepsOrNote(container, steps, textOf) {
+    if (!steps || steps.length === 0) {
+      const p = document.createElement('p');
+      p.className = 'step-note';
+      p.textContent = 'Шаги для этого раздела пока не описаны.';
+      container.appendChild(p);
+      return;
+    }
+    steps.forEach((step) => appendStep(container, textOf ? textOf(step) : step.text));
+  }
+
+  /**
    * Отрисовывает построенный маршрут в области результата.
    * #result НЕ является aria-live регионом специально: если озвучивать весь
    * этот блок при появлении, экранный читалка прочитает целиком весь маршрут
    * сразу после нажатия кнопки. Вместо этого мы даём короткое уведомление
    * через #status, а сам текст маршрута пользователь читает сам, когда готов.
+   *
+   * Маршрут может состоять из нескольких сегментов (route.segments) — поездок по линии
+   * и пересадок между ними, если станции на разных линиях. Каждый сегмент показывается
+   * под своим заголовком независимо от того, есть ли по нему текст шагов: заголовки
+   * «На платформе», «Сойти с платформы», «Переход» должны быть видны всегда, чтобы было
+   * понятно, из чего вообще состоит маршрут, даже если содержимое ещё не описано.
    */
   function renderRoute(route) {
     resultRegion.innerHTML = '';
 
-    const totalSteps =
-      route.entranceSteps.length +
-      route.fromPlatformSteps.length +
-      1 + // BOARD_TRAIN_STEP
-      route.exitSteps.length;
+    // Считаем только реальные шаги из данных станций (плюс всегда присутствующую фразу
+    // "сядьте в поезд" на каждую поездку) — так же, как раньше: фраза о стороне посадки
+    // в счётчик не входит, это генерируемый интерфейсом текст, а не шаг из данных станции.
+    let totalSteps = route.entranceSteps.length + route.exitSteps.length;
+    route.segments.forEach((segment, index) => {
+      if (segment.type === 'ride') {
+        totalSteps += segment.platformSteps.length + 1; // +1 — BOARD_TRAIN_STEP
+        const isLastSegment = index === route.segments.length - 1;
+        if (!isLastSegment) {
+          totalSteps += segment.arrivalPlatformSteps.length;
+        }
+      } else {
+        totalSteps += segment.steps.length;
+      }
+    });
 
     const heading = document.createElement('h2');
     heading.textContent = `Маршрут: ${route.fromName} → ${route.toName}`;
@@ -195,29 +227,36 @@ const BOARD_TRAIN_STEP = 'Дождитесь прибытия поезда и в
     resultRegion.appendChild(meta);
 
     appendHeading(resultRegion, `Вход: ${route.fromName}`);
-    route.entranceSteps.forEach((step) => appendStep(resultRegion, step.text));
+    appendStepsOrNote(resultRegion, route.entranceSteps);
 
-    appendHeading(resultRegion, `На платформе: ${route.fromName}`);
-    const boardingSideText = sideToText(route.boardingSide);
-    if (boardingSideText) {
-      appendStep(resultRegion, `Поезда в направлении «${route.destinationLabel}» отправляются ${boardingSideText}.`);
-    }
-    route.fromPlatformSteps.forEach((step) => appendStep(resultRegion, step.text));
-    appendStep(resultRegion, BOARD_TRAIN_STEP);
+    route.segments.forEach((segment, index) => {
+      if (segment.type === 'ride') {
+        appendHeading(resultRegion, `На платформе: ${segment.fromName}`);
+        const boardingSideText = sideToText(segment.boardingSide);
+        if (boardingSideText) {
+          appendStep(resultRegion, `Поезда в направлении «${segment.destinationLabel}» отправляются ${boardingSideText}.`);
+        }
+        segment.platformSteps.forEach((step) => appendStep(resultRegion, step.text));
+        appendStep(resultRegion, BOARD_TRAIN_STEP);
 
-    // Секция «На платформе: {Б}» намеренно не выводится: пока маршруты только в пределах
-    // одной линии без пересадок, эта информация не нужна между платформой отправления и выходом.
-    // route.toPlatformSteps при этом всё равно считается в route-builder.js — пригодится при появлении
-    // пересадок, когда эту секцию надо будет вернуть.
+        const isLastSegment = index === route.segments.length - 1;
+        if (!isLastSegment) {
+          appendHeading(resultRegion, `Сойти с платформы: ${segment.toName}`);
+          appendStepsOrNote(resultRegion, segment.arrivalPlatformSteps);
+        }
+      } else {
+        appendHeading(resultRegion, `Переход: ${segment.fromName} → ${segment.toName}`);
+        appendStepsOrNote(resultRegion, segment.steps);
+      }
+    });
 
     appendHeading(resultRegion, `Выход: ${route.toName}`);
-    route.exitSteps.forEach((step) => {
+    appendStepsOrNote(resultRegion, route.exitSteps, (step) =>
       // Первый условный шаг выхода — это всегда поворот, зависящий от направления
       // прибытия, поэтому для него добавляем контекст. Обычные шаги (conditional: false)
       // остаются как есть.
-      const text = step.conditional ? `После выхода из поезда ${lowerFirst(step.text)}` : step.text;
-      appendStep(resultRegion, text);
-    });
+      step.conditional ? `После выхода из поезда ${lowerFirst(step.text)}` : step.text
+    );
 
     // Единственное, что озвучивает NVDA автоматически, — короткое подтверждение.
     setStatus('Маршрут построен.');

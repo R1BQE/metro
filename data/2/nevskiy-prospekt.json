@@ -31,5 +31,11 @@
   "platform": {
     "steps": [],
     "directions": []
-  }
+  },
+  "transfers": [
+    {
+      "to": "gostiny-dvor",
+      "steps": []
+    }
+  ]
 }
